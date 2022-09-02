@@ -1,0 +1,4 @@
+#!/home/benjamin/Documents/iseebee/stockenv/bin/python
+# EASY-INSTALL-SCRIPT: 'killerbee==3.0.0b2','zbjammer'
+__requires__ = 'killerbee==3.0.0b2'
+__import__('pkg_resources').run_script('killerbee==3.0.0b2', 'zbjammer')
