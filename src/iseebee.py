@@ -1,27 +1,34 @@
 import zigbee
 import gui
 import objects
+from threading import Thread
 #import hue
 
 def main():
-    # Create gui window
-    window = gui.Window('iseebee', '800x600')
+    # Declare global variables
+    global window, sniff, network
     # Create sniffer object
     sniff = zigbee.Sniffer()
     # Create network
     network = objects.Network("1")
-    while (True):
-        # Read packets
-        data = sniff.readPacket()
-        if data != None:
-            # Extract source
-            window.displayMessage("Source: " + str(data[13:15]) + "\n")
-            if network.searchNode(data[13:15]) == False: 
-                network.addNode(objects.Node(data[13:15]))
-        # Add message from the sniffer to the windows)
-        #window.displayMessage(sniff.getMessage())
-        # Update window
-        window.drawNodes(network)
-        window.update()
+    # Create window
+    window = gui.Window('iseebee', '800x600')
+    # Start gui thread
+    window.start(mainLoop)
+        
+def mainLoop():
+    # Read packets
+    data = sniff.readPacket()
+    if data != None:
+        # Extract source
+        window.displayMessage("Source: " + str(data[13:15]) + "\n")
+        if network.searchNode(data[13:15]) == False: 
+            network.addNode(objects.Node(data[13:15]))
+    # Add message from the sniffer to the windows)
+    window.displayMessage(sniff.getMessage())
+    window.drawNodes(network)   
+    # Set mainLoop to run again
+    window.after(mainLoop)
+    
 if __name__ == '__main__':
     main()
