@@ -14,7 +14,9 @@ def main():
     # Create window
     # Add menufunctions into dictionary
     menuFunctions = {
-        "newNetwork": newNetwork
+        "newNetwork": newNetwork,
+        "openNetwork": openNetwork,
+        "saveNetwork": saveNetwork
     }
     window = gui.Window('iseebee', '800x600', menuFunctions)
     # Start gui thread
@@ -40,11 +42,11 @@ def newNetwork():
     network = objects.Network("1")
     
 # Function to save network
-def save():
+def saveNetwork():
     print("Not yet implemented")
     
 # Function to open network
-def open():
+def openNetwork():
     print("Not yet implemented")
 
 if __name__ == '__main__':
