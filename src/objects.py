@@ -1,8 +1,9 @@
 class Network:
     def __init__(self, ID):
         self.nodes = []
+        self.ID =ID
         #self.index = 0
-        self.updated = False
+        self.updated = True
 
     def __iter__(self):
         yield from self.nodes
@@ -11,7 +12,10 @@ class Network:
         print("Node added:" + str(node.getID()))
         self.nodes.append(node)
         self.updated = True
-
+        
+    def getID(self):
+        return ID
+        
     def searchNode(self, ID):
         for node in self:
             if node.getID() == ID:
@@ -23,6 +27,7 @@ class Network:
 
     def setUpdated(self):
         self.updated =  False
+    
 
 class Node:
     def __init__(self, ID):

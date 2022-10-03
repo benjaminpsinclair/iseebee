@@ -12,7 +12,11 @@ def main():
     # Create network
     network = objects.Network("1")
     # Create window
-    window = gui.Window('iseebee', '800x600')
+    # Add menufunctions into dictionary
+    menuFunctions = {
+        "newNetwork": newNetwork
+    }
+    window = gui.Window('iseebee', '800x600', menuFunctions)
     # Start gui thread
     window.start(mainLoop)
         
@@ -29,6 +33,19 @@ def mainLoop():
     window.drawNodes(network)   
     # Set mainLoop to run again
     window.after(mainLoop)
+
+# Function to create new network
+def newNetwork():
+    global network
+    network = objects.Network("1")
     
+# Function to save network
+def save():
+    print("Not yet implemented")
+    
+# Function to open network
+def open():
+    print("Not yet implemented")
+
 if __name__ == '__main__':
     main()
