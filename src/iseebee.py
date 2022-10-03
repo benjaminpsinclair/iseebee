@@ -5,11 +5,13 @@ import objects
 
 def main():
     # Declare global variables
-    global window, sniff, network
+    global window, sniff, network, packets
     # Create sniffer object
     sniff = zigbee.Sniffer()
     # Create network
     network = objects.Network("1")
+    # Create empty packet list
+    packets = []
     # Create window
     # Add menufunctions into dictionary
     menuFunctions = {
@@ -25,12 +27,18 @@ def mainLoop():
     # Read packets
     data = sniff.readPacket()
     if data != None:
-        # Extract source
+        # Add data to packet
+        packet = zigbee.Packet(data)
+        # Add packet to window
+        window.displayPacket(packet)
+        packets.append(packet)
         window.displayMessage("Packet received, Source: " + str(data[13:15]) + '\n')
         if network.searchNode(data[13:15]) == False: 
             network.addNode(objects.Node(data[13:15]))
-    # Add message from the sniffer to the windows)
+    # Add message from the sniffer to the window
     window.displayMessage(sniff.getMessage())
+    # Display raw message box contents
+    window.displayRawMessage()
     window.drawNodes(network)   
     # Set mainLoop to run again
     window.after(mainLoop)

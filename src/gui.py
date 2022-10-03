@@ -51,6 +51,17 @@ class Window:
         self.messageLabel.configure(state='normal')
         self.messageLabel.insert(tk.INSERT, message)
         self.messageLabel.configure(state='disabled')
+        
+    def displayPacket(self, packet):
+        self.packetList._buildTree(packet)
+    
+    def displayRawMessage(self):
+        raw = self.packetList.getRawMessage()
+        if raw != '':
+            self.messageRaw.configure(state='normal')
+            self.messageRaw.delete('1.0', tk.END)
+            self.messageRaw.insert(tk.INSERT, raw)
+            self.messageRaw.configure(state='disabled')
    
     # Function to draw network  
     def drawNodes(self, network):
@@ -141,9 +152,17 @@ class popManager:
 # List class using treeview, based on stackexchange 5286093
 class listBox:
     def __init__(self, header, window):
+        # Initialise variables
         self.tree = None
+        # Packet dictionary
+        self.packets = {}
+        # Packet contents
+        self.updated = False
+        self.rawMessage = ''
+        
         self._setup(header, window)
-        self._buildTree()
+        packet = None
+        self._buildTree(packet)
         
     def _setup(self, header, window):
         self.tree = ttk.Treeview(window, columns=header, show="headings")
@@ -152,13 +171,37 @@ class listBox:
         self.tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
         # TODO replace place with pack - remove magic numbers
         self.tree.place(x=260,y=375)
+        # Bind click function
+        self.tree.bind("<<TreeviewSelect>>", self.getPacket)
     
-    def _buildTree(self):
+    def _buildTree(self, packet):
         for col in packet_header:
             self.tree.heading(col, text=col.title())
+        if packet != None:
+            item = packet.getInfo()
+            ID = self.tree.insert('', 'end', values=item)
+            print(ID)
+            self.packets[ID] = packet
+    
+    def getPacket(self, event):
+        for item in self.tree.selection():
+            self.updated = True
+            print(item)
+            self.messageRaw = self.packets[item].getRaw()
+
+    def getRawMessage(self):
+        if self.updated == True:
+            self.updated = False
+            print(self.messageRaw)
+            return self.messageRaw
+        else:
+            return ''
+        
+            
+    # TODO clickable and change packet contents to display in other widget
         
         
 # Header for packet list tree
-packet_header = ['Source', 'Recipient', 'Protocol']
+packet_header = ['Source', 'Destination', 'Sequence Number']
         
 

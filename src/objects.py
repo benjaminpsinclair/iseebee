@@ -27,7 +27,6 @@ class Network:
 
     def setUpdated(self):
         self.updated =  False
-    
 
 class Node:
     def __init__(self, ID):

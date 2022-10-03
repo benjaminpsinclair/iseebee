@@ -37,3 +37,23 @@ class Transmitter:
     def getMessage(self):
         return self.message
         
+class Packet:
+    def __init__(self, data):
+        self.data = data
+        # Destination address
+        self.dest = data[10:12]
+        # Source address
+        self.source = data[13:15]
+        # Protocol 
+        self.seqNum = data[16:17]
+    
+    def getInfo(self):
+        info = []
+        info.append(self.source)
+        info.append(self.dest)
+        info.append(self.seqNum)
+        return info
+    
+    def getRaw(self):
+        return str(self.data)
+        
