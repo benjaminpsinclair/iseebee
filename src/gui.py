@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import scrolledtext, Menu
+from tkinter import scrolledtext, Menu, ttk
 import objects
 
 # Window class
@@ -11,8 +11,17 @@ class Window:
         self.window.resizable(False, False)
         # Create drag manager
         self.drag = dragManager()
+        # Create pop up menu manager
+        self.pop = popManager(self.window)
         # Add main messagebox
-        self.messageLabel = self.addMessageBox(25, 30)
+        self.messageLabel = self.addMessageBox(30, 32)
+        # Add raw messagebox
+        self.messageRaw = scrolledtext.ScrolledText(self.window, width = 69, height = 11)
+        #TODO replace place with pack
+        self.messageRaw.place(x=865,y=385)
+        # TODO setup widget function?
+        # Create tree list
+        self.packetList = listBox(packet_header, self.window)
         # Create list of labels for network and nodes
         self.labels = []
         # Create menubar
@@ -35,8 +44,6 @@ class Window:
         self.scanMenu = Menu(self.menubar, tearoff=False)
         self.scanMenu.add_command(label='Scan Network')
         self.menubar.add_cascade(label="Scan", menu=self.scanMenu)
-        # Add bottom frame 
-        #self.packetFrame = tk.Frame(master=self.window, relief=tk.RAISED, borderwidth=1)
         
     def displayMessage(self, message):
         # Make sure we're at the bottom before inserting
@@ -61,6 +68,8 @@ class Window:
                 label = tk.Label(self.window, text=ID, bg="red")
                 # Add drag and drop function
                 self.drag.addDragable(label)
+                # Add popup menu
+                self.pop.addPop(label)
                 # Add to label list
                 self.labels.append(label)
                 # Place label on window
@@ -94,7 +103,8 @@ class dragManager:
         
     def onDrag(self, event):
         pass
-        
+    
+    #TODO keep object within viewport
     def onDrop(self, event):
         target = event.widget.winfo_containing(originalX, originalY)
         newX = event.x + event.widget.winfo_x()
@@ -107,5 +117,48 @@ class dragManager:
         except:
             pass    
 
+class popManager:
+    #TODO pass functions for menu
+    def __init__(self, window):
+        # Create right click menu
+        self.clickMenu = Menu(window,  tearoff = False)
+        self.clickMenu.add_command(label = "Send")
+
+    def addPop(self, widget):
+        widget.bind("<Button-3>", self.popMenu)
+        #widget.bind("<Button-1>", self.closeMenu)
+    
+    def popMenu(self, event):
+        try:
+            self.clickMenu.tk_popup(event.x_root, event.y_root)
+        finally:
+            self.clickMenu.grab_release()
+    
+    def closeMenu(self, event):
+        #TODO close menu if user clicks elsewhere
+        pass
+
+# List class using treeview, based on stackexchange 5286093
+class listBox:
+    def __init__(self, header, window):
+        self.tree = None
+        self._setup(header, window)
+        self._buildTree()
         
-#TODO update text box function 
+    def _setup(self, header, window):
+        self.tree = ttk.Treeview(window, columns=header, show="headings")
+        vsb = ttk.Scrollbar(orient="vertical", command=self.tree.yview)
+        hsb = ttk.Scrollbar(orient="horizontal", command=self.tree.xview)
+        self.tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
+        # TODO replace place with pack - remove magic numbers
+        self.tree.place(x=260,y=375)
+    
+    def _buildTree(self):
+        for col in packet_header:
+            self.tree.heading(col, text=col.title())
+        
+        
+# Header for packet list tree
+packet_header = ['Source', 'Recipient', 'Protocol']
+        
+
