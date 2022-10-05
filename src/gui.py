@@ -1,3 +1,6 @@
+# Gui for iseebee prototype
+# TODO migrate to wxPython for accessibility functions
+
 import tkinter as tk
 from tkinter import scrolledtext, Menu, ttk
 import objects
@@ -12,7 +15,7 @@ class Window:
         # Create drag manager
         self.drag = dragManager()
         # Create pop up menu manager
-        self.pop = popManager(self.window)
+        self.pop = popManager(self.window, menuFunctions["send"])
         # Add main messagebox
         self.messageLabel = self.addMessageBox(30, 32)
         # Add raw messagebox
@@ -45,6 +48,10 @@ class Window:
         self.scanMenu.add_command(label='Scan Network')
         self.menubar.add_cascade(label="Scan", menu=self.scanMenu)
         
+        #TEMP
+        #self.sendingPacket = bytes.fromhex('418865b478ffff7a970912fcff7a971ebfb608d1010188170028323d1200b608d1010188170000bfaa80ea88291fe6f0be58948f82d907ac6fea37')
+        self.sendingPacket = bytes.fromhex('6188a0b4787b047a9748027b047a971eab286d411200b608d1010188170000d20e5947175c868c2cb3f7d50f70ac46c07bec')
+        
     def displayMessage(self, message):
         # Make sure we're at the bottom before inserting
         self.messageLabel.see(tk.END)
@@ -62,30 +69,32 @@ class Window:
             self.messageRaw.delete('1.0', tk.END)
             self.messageRaw.insert(tk.INSERT, raw)
             self.messageRaw.configure(state='disabled')
+            
+    def getSendingPacket(self):
+        return self.sendingPacket
    
-    # Function to draw network  
+    # Function to draw network on window
     def drawNodes(self, network):
-        # Check if the network has changed since last drawing
-        if network.pendingUpdate() == True:
-            print("Drawing update")
-            # Remove labels
-            for label in self.labels:
-                label.destroy()
-            network.setUpdated()
-            i = 1
-            for node in network:
-                ID = str(node.getID())
-                # Create node label
-                label = tk.Label(self.window, text=ID, bg="red")
-                # Add drag and drop function
-                self.drag.addDragable(label)
-                # Add popup menu
-                self.pop.addPop(label)
-                # Add to label list
-                self.labels.append(label)
-                # Place label on window
-                label.place(x=(i*350), y=20)
-                i = i + 1
+        # Remove existing labels
+        for label in self.labels:
+            label.destroy() 
+        # Redraw new labels
+        for node in network:
+            ID = str(node.getID())
+            # Create node label
+            label = tk.Label(self.window, text=ID, bg="red")
+            # Add drag and drop function
+            self.drag.addDragable(label, node)
+            # Add popup menu
+            self.pop.addPop(label, node)
+            # Add to label list
+            self.labels.append(label)
+            # Place label on window
+            xPos=node.getPosx()
+            yPos=node.getPosy()
+            print(xPos)
+            label.place(x = xPos, y = yPos)
+            #label.place(x=150, y=350)
     
     def addMessageBox(self, x, y):
         label = scrolledtext.ScrolledText(self.window, width = x, height = y)
@@ -102,7 +111,8 @@ class Window:
 # Class to provide drag and drop functionality to labels
 # Code based on stackoverflow 44887576           
 class dragManager:
-    def addDragable(self, widget):
+    def addDragable(self, widget, node):
+        self.node = node
         widget.bind("<ButtonPress-1>", self.onStart)
         widget.bind("<B1-Motion>", self.onDrag)
         widget.bind("<ButtonRelease-1>", self.onDrop)
@@ -122,20 +132,18 @@ class dragManager:
         newY = event.y + event.widget.winfo_y()
         try:
             target.place(x = newX, y = newY)
-            print("Release")
-            print(newX)
-            print(newY)
+            node.setPos(newX, newY)
         except:
             pass    
 
 class popManager:
     #TODO pass functions for menu
-    def __init__(self, window):
+    def __init__(self, window, sendFunc):
         # Create right click menu
         self.clickMenu = Menu(window,  tearoff = False)
-        self.clickMenu.add_command(label = "Send")
+        self.clickMenu.add_command(label = "Send", command=sendFunc)
 
-    def addPop(self, widget):
+    def addPop(self, widget, node):
         widget.bind("<Button-3>", self.popMenu)
         #widget.bind("<Button-1>", self.closeMenu)
     
@@ -148,6 +156,9 @@ class popManager:
     def closeMenu(self, event):
         #TODO close menu if user clicks elsewhere
         pass
+        
+    def testSend(self):
+        print("testsend")
 
 # List class using treeview, based on stackexchange 5286093
 class listBox:

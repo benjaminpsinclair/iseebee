@@ -20,22 +20,16 @@ class Sniffer:
         packet = self.kb.pnext()
         if packet != None:
             self.message = str(packet['bytes'])
-            return packet['bytes'] 
+            return packet['bytes']
         else:
             self.message = ""
                
     def getMessage(self):
         return self.message 
         
-class Transmitter:
-    def __init__(self):
-        self.message = ""
-        
-    def sendPacket(self, data):
-        return data
-        
-    def getMessage(self):
-        return self.message
+    def sendPacket(self, packet):
+        print(packet)
+        self.kb.inject(packet)
         
 class Packet:
     def __init__(self, data):
@@ -55,5 +49,6 @@ class Packet:
         return info
     
     def getRaw(self):
-        return str(self.data)
+        # Return raw packet in hex
+        return self.data.hex()
         

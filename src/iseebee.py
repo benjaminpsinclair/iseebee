@@ -17,7 +17,8 @@ def main():
     menuFunctions = {
         "newNetwork": newNetwork,
         "openNetwork": openNetwork,
-        "saveNetwork": saveNetwork
+        "saveNetwork": saveNetwork,
+        "send": send
     }
     window = gui.Window('iseebee', '1440x600', menuFunctions)
     # Start gui thread
@@ -34,19 +35,29 @@ def mainLoop():
         packets.append(packet)
         window.displayMessage("Packet received, Source: " + str(data[13:15]) + '\n')
         if network.searchNode(data[13:15]) == False: 
-            network.addNode(objects.Node(data[13:15]))
+            node = objects.Node(data[13:15], 700, 150)
+            network.addNode(node)
+            window.drawNodes(network) 
     # Add message from the sniffer to the window
     window.displayMessage(sniff.getMessage())
     # Display raw message box contents
-    window.displayRawMessage()
-    window.drawNodes(network)   
+    window.displayRawMessage()  
     # Set mainLoop to run again
     window.after(mainLoop)
+
+# Wrapper for send function
+def send():
+    # Retrieve sending packet from gui
+    packet = window.getSendingPacket()
+    # Check packet is not empty
+    if packet != '':
+        sniff.sendPacket(window.getSendingPacket())
 
 # Function to create new network
 def newNetwork():
     global network
     network = objects.Network("1")
+    window.drawNodes(network)
     
 # Function to save network
 def saveNetwork():
