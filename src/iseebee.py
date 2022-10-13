@@ -37,11 +37,9 @@ def mainLoop():
         if network.searchNode(data[13:15]) == False: 
             node = objects.Node(data[13:15], 700, 150)
             network.addNode(node)
-            window.drawNodes(network) 
+            #window.drawNodes(network) 
     # Add message from the sniffer to the window
     window.displayMessage(sniff.getMessage())
-    # Display raw message box contents
-    window.displayRawMessage()  
     # Set mainLoop to run again
     window.after(mainLoop)
 

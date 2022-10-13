@@ -3,72 +3,91 @@
 
 import tkinter as tk
 from tkinter import scrolledtext, Menu, ttk
+import wx
+import threading
 import objects
 
 # Window class
 class Window:
     def __init__(self, title, geometry, menuFunctions):
-        self.window = tk.Tk()
-        self.window.title(title)
-        self.window.geometry(geometry) 
-        self.window.resizable(False, False)
+        # Convert geometry in format 'axb' to size tuple (a, b)
+        size = tuple(map(int, geometry.split('x')))
+        
+        # Create window 
+        self.app = wx.App(False)
+        self.window = wx.Frame(None, wx.ID_ANY, title=title, size=size)
+ 
+        #self.window.resizable(False, False)
         # Create drag manager
-        self.drag = dragManager()
+        #self.drag = dragManager()
         # Create pop up menu manager
-        self.pop = popManager(self.window, menuFunctions["send"])
+        #self.pop = popManager(self.window, menuFunctions["send"])
+        
         # Add main messagebox
-        self.messageLabel = self.addMessageBox(30, 32)
+        self.messageLabel = wx.TextCtrl(self.window, size=(300, 600), style=wx.TE_MULTILINE| wx.TE_READONLY)
+        
         # Add raw messagebox
-        self.messageRaw = scrolledtext.ScrolledText(self.window, width = 69, height = 11)
-        #TODO replace place with pack
-        self.messageRaw.place(x=865,y=385)
-        # TODO setup widget function?
+        self.messageRaw = wx.TextCtrl(self.window, size=(1440, 200), style=wx.TE_MULTILINE | wx.TE_READONLY)
+        
         # Create tree list
-        self.packetList = listBox(packet_header, self.window)
+        #self.packetList = wx.ListCtrl(self.window, style=wx.LC_REPORT | wx.SUNKEN_BORDER)
+        self.packetList = listBox(("Source", "Destination", "Sequence Number"), self.window, self.displayRawMessage)
+
+        # Horizontal sizer for widgets
+        horzSizer = wx.BoxSizer(wx.HORIZONTAL)
+        horzSizer.Add(self.packetList.getWidget(), 0, wx.EXPAND)
+        horzSizer.Add(self.messageRaw, 0, wx.EXPAND)
+        
+        # Vertical sizer for widgets
+        sizer = wx.BoxSizer(wx.HORIZONTAL)
+        sizer.Add(self.messageLabel, 0, wx.ALIGN_BOTTOM)
+        sizer.Add(horzSizer, 0, wx.ALIGN_BOTTOM)        
+ 
+        self.window.SetSizer(sizer)
+        self.window.Layout()
+        
         # Create list of labels for network and nodes
         self.labels = []
-        # Create menubar
-        self.menubar = Menu(self.window, tearoff=False)
-        self.window.config(menu=self.menubar)
+
         # Create file menu
-        self.fileMenu = Menu(self.menubar, tearoff=False)
-        self.fileMenu.add_command(label='New Network', command=menuFunctions["newNetwork"])
-        self.fileMenu.add_command(label='Open', command=menuFunctions["openNetwork"])
-        self.fileMenu.add_command(label='Save', command=menuFunctions["saveNetwork"])
-        self.fileMenu.add_command(label='Exit', command=self.window.destroy)
-        self.menubar.add_cascade(label="File", menu=self.fileMenu)
+        self.fileMenu = wx.Menu()
+        menuNewNetwork = self.fileMenu.Append(wx.ID_ANY, "&New Network", " Create new network diagram")
+        menuOpen = self.fileMenu.Append(wx.ID_OPEN, "&Open", " Open a network diagram")
+        menuExit = self.fileMenu.Append(wx.ID_EXIT, "&Exit", " Exit the application")
         # Create edit menu
-        self.editMenu = Menu(self.menubar, tearoff=False)
-        self.editMenu.add_command(label='Preferences')
-        self.menubar.add_cascade(label="Edit", menu=self.editMenu)
+        #self.editMenu = Menu(self.menubar, tearoff=False)
+        #self.editMenu.add_command(label='Preferences')
+        #self.menubar.add_cascade(label="Edit", menu=self.editMenu)
         # Create view menu
-        self.viewMenu = Menu(self.menubar, tearoff=False)
+        #self.viewMenu = Menu(self.menubar, tearoff=False)
         # Create scan menu
-        self.scanMenu = Menu(self.menubar, tearoff=False)
-        self.scanMenu.add_command(label='Scan Network')
-        self.menubar.add_cascade(label="Scan", menu=self.scanMenu)
+        #self.scanMenu = Menu(self.menubar, tearoff=False)
+        #self.scanMenu.add_command(label='Scan Network')
+        #self.menubar.add_cascade(label="Scan", menu=self.scanMenu)
+        # Create menubar
+        self.menubar = wx.MenuBar()
+        self.menubar.Append(self.fileMenu, "&File")
+        self.window.SetMenuBar(self.menubar)
         
+        # Bindings
+        self.window.Bind(wx.EVT_MENU, self.onExit, menuExit)
+
+        self.window.Show(True)
         #TEMP
         #self.sendingPacket = bytes.fromhex('418865b478ffff7a970912fcff7a971ebfb608d1010188170028323d1200b608d1010188170000bfaa80ea88291fe6f0be58948f82d907ac6fea37')
-        self.sendingPacket = bytes.fromhex('6188a0b4787b047a9748027b047a971eab286d411200b608d1010188170000d20e5947175c868c2cb3f7d50f70ac46c07bec')
         
+        self.sendingPacket = bytes.fromhex('6188a0b4787b047a9748027b047a971eab286d411200b608d1010188170000d20e5947175c868c2cb3f7d50f70ac46c07bec')
+    
+    # Function to display message in message box
     def displayMessage(self, message):
-        # Make sure we're at the bottom before inserting
-        self.messageLabel.see(tk.END)
-        self.messageLabel.configure(state='normal')
-        self.messageLabel.insert(tk.INSERT, message)
-        self.messageLabel.configure(state='disabled')
+        # Use threadsafe wx.CallAfter() to append text to message label
+        wx.CallAfter(self.messageLabel.AppendText, message)
         
     def displayPacket(self, packet):
-        self.packetList._buildTree(packet)
+        wx.CallAfter(self.packetList._buildTree, packet)
     
-    def displayRawMessage(self):
-        raw = self.packetList.getRawMessage()
-        if raw != '':
-            self.messageRaw.configure(state='normal')
-            self.messageRaw.delete('1.0', tk.END)
-            self.messageRaw.insert(tk.INSERT, raw)
-            self.messageRaw.configure(state='disabled')
+    def displayRawMessage(self, message):
+        wx.CallAfter(self.messageRaw.SetValue, message)
             
     def getSendingPacket(self):
         return self.sendingPacket
@@ -92,22 +111,30 @@ class Window:
             # Place label on window
             xPos=node.getPosx()
             yPos=node.getPosy()
-            print(xPos)
+            #print(xPos)
             label.place(x = xPos, y = yPos)
-            #label.place(x=150, y=350)
-    
-    def addMessageBox(self, x, y):
-        label = scrolledtext.ScrolledText(self.window, width = x, height = y)
-        label.pack(side=tk.LEFT)
-        return label
         
     def start(self, function):
-        self.window.after(1, function)
-        self.window.mainloop()
-        
-    def after(self, function):
-        self.window.after(1, function)
+        # Track if application is still supposed to be running
+        self.running = threading.Event()
+        self.running.set()
+        # Create thread for gui
+        t = threading.Thread(target=self.app.MainLoop)
+        t.start()
+        # Run main function
+        while(self.running.is_set()):
+            function()
 
+    # This is not required for wxPython implimentation
+    def after(self, function):
+        pass
+        
+    def onExit(self, event):
+        # Set running as false
+        self.running.clear()
+        # Close window
+        self.window.Close(True)
+        
 # Class to provide drag and drop functionality to labels
 # Code based on stackoverflow 44887576           
 class dragManager:
@@ -162,40 +189,42 @@ class popManager:
 
 # List class using treeview, based on stackexchange 5286093
 class listBox:
-    def __init__(self, header, window):
+    def __init__(self, header, window, displayFunction):
         # Initialise variables
         self.tree = None
-        # Packet dictionary
-        self.packets = {}
+        # Packet list
+        self.packets = []
         # Packet contents
         self.updated = False
-        self.rawMessage = ''
-        
-        self._setup(header, window)
+        self.messageRaw = ''
+        self.displayFunction  = displayFunction
+        # Create tree
+        self.tree = wx.ListCtrl(window, style=wx.LC_REPORT | wx.SUNKEN_BORDER)
+        # Binding
+        self.tree.Bind(wx.EVT_LEFT_UP, self.onClick)
         packet = None
-        self._buildTree(packet)
-        
-    def _setup(self, header, window):
-        self.tree = ttk.Treeview(window, columns=header, show="headings")
-        vsb = ttk.Scrollbar(orient="vertical", command=self.tree.yview)
-        hsb = ttk.Scrollbar(orient="horizontal", command=self.tree.xview)
-        self.tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
-        # TODO replace place with pack - remove magic numbers
-        self.tree.place(x=260,y=375)
+        # Build Columns
+        for idx, columnName in enumerate(header):
+            self.tree.InsertColumn(idx, columnName)
+        # Set column widths
+        self.tree.SetColumnWidth(0, 100)
+        self.tree.SetColumnWidth(1, 100)
+        self.tree.SetColumnWidth(2, 150)
         # Bind click function
-        self.tree.bind("<<TreeviewSelect>>", self.getPacket)
+        #self.tree.bind("<<TreeviewSelect>>", self.getPacket)
+        self._buildTree(packet)
     
     def _buildTree(self, packet):
-        for col in packet_header:
-            self.tree.heading(col, text=col.title())
         if packet != None:
             item = packet.getInfo()
-            ID = self.tree.insert('', 'end', values=item)
-            print(ID)
-            self.packets[ID] = packet
+            ID = self.tree.InsertItem(0, str(item[0]))
+            self.tree.SetItem(ID, 1, str(item[1]))
+            self.tree.SetItem(ID, 2, str(item[2]))
+            self.packets.insert(0, packet)
     
-    def getPacket(self, event):
-        for item in self.tree.selection():
+    def getPacket(self):
+        item = self.tree.GetFocusedItem()
+        if item != -1:
             self.updated = True
             print(item)
             self.messageRaw = self.packets[item].getRaw()
@@ -203,16 +232,15 @@ class listBox:
     def getRawMessage(self):
         if self.updated == True:
             self.updated = False
-            print(self.messageRaw)
             return self.messageRaw
         else:
             return ''
-        
             
-    # TODO clickable and change packet contents to display in other widget
-        
-        
-# Header for packet list tree
-packet_header = ['Source', 'Destination', 'Sequence Number']
+    def getWidget(self):
+        return self.tree
+            
+    def onClick(self, event):
+        self.getPacket()
+        self.displayFunction(self.messageRaw)
         
 
