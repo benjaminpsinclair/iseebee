@@ -91,28 +91,30 @@ class Window:
             
     def getSendingPacket(self):
         return self.sendingPacket
+    
+    def drawNodes(self, network):
+        wx.CallAfter(self.drawNetwork, network)
    
     # Function to draw network on window
-    def drawNodes(self, network):
+    def drawNetwork(self, network):
         # Remove existing labels
         for label in self.labels:
-            label.destroy() 
+            label.Destroy()
         # Redraw new labels
         for node in network:
             ID = str(node.getID())
-            # Create node label
-            label = tk.Label(self.window, text=ID, bg="red")
-            # Add drag and drop function
-            self.drag.addDragable(label, node)
-            # Add popup menu
-            self.pop.addPop(label, node)
-            # Add to label list
-            self.labels.append(label)
             # Place label on window
             xPos=node.getPosx()
             yPos=node.getPosy()
+            # Create node label
+            label = wx.StaticText(self.window, label=ID, pos=(xPos, yPos))
+            # Add drag and drop function
+            #self.drag.addDragable(label, node)
+            # Add popup menu
+            #self.pop.addPop(label, node)
+            # Add to label list
+            self.labels.append(label)
             #print(xPos)
-            label.place(x = xPos, y = yPos)
         
     def start(self, function):
         # Track if application is still supposed to be running

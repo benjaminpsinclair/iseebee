@@ -6,16 +6,9 @@ import os
 
 class Sniffer: 
     def __init__(self):
-        # Store latest message to pass on
-        self.message = ""
-        with KillerBee() as self.kb:
-            try: 
-                self.kb.set_channel(11,)
-            except:
-                print("Error setting channel")
-                sys.exit(1)
-        self.kb.sniffer_on()
-
+        self.reset()
+        
+    # TODO decrypt packet and add to here
     def readPacket(self):
         packet = self.kb.pnext()
         if packet != None:
@@ -30,6 +23,18 @@ class Sniffer:
     def sendPacket(self, packet):
         print(packet)
         self.kb.inject(packet)
+        
+    def reset(self):
+        # Store latest message to pass on
+        self.message = ""
+        with KillerBee() as self.kb:
+            try: 
+                self.kb.set_channel(11,)
+            except:
+                print("Error setting channel")
+                sys.exit(1)
+        self.kb.sniffer_on()
+        
         
 class Packet:
     def __init__(self, data):

@@ -1,7 +1,9 @@
 import zigbee
+#import gui_old as gui
 import gui
 import objects
 #import hue
+import time
 
 def main():
     # Declare global variables
@@ -25,8 +27,14 @@ def main():
     window.start(mainLoop)
         
 def mainLoop():
-    # Read packets
-    data = sniff.readPacket()
+    # Try to read packets
+    try:
+        data = sniff.readPacket()
+    except Exception as e:
+        print("Error: ", e)
+        time.sleep(5)
+        sniff.reset()
+        data = None
     if data != None:
         # Add data to packet
         packet = zigbee.Packet(data)
@@ -37,7 +45,7 @@ def mainLoop():
         if network.searchNode(data[13:15]) == False: 
             node = objects.Node(data[13:15], 700, 150)
             network.addNode(node)
-            #window.drawNodes(network) 
+            window.drawNodes(network) 
     # Add message from the sniffer to the window
     window.displayMessage(sniff.getMessage())
     # Set mainLoop to run again

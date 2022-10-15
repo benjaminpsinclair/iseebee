@@ -106,6 +106,7 @@ class Window:
         self.window.mainloop()
         
     def after(self, function):
+        self.displayRawMessage()
         self.window.after(1, function)
 
 # Class to provide drag and drop functionality to labels
