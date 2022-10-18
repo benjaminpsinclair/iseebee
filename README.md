@@ -9,6 +9,8 @@ Killerbee is compatible with several devices, however this has been tested using
 
 ## Installation
 
+This prototype has been tested on Fedora 36 and Ubuntu 22.04
+
 First create the virtual environment:
 
 ```shell
