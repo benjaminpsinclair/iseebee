@@ -3,7 +3,7 @@
 # Author: Benjamin Sinclair
 # Revision Date: 17/10/2022
 # Name: gui.py
-# 
+#
 # ---------------------------------------------------------------------------
 # Gui for iseebee prototype, using wxPython library for compatibility with
 # screen reader tools for visual accessibility
@@ -18,19 +18,19 @@ class Window:
     def __init__(self, title, geometry):
         # Convert geometry in format 'axb' to size tuple (a, b)
         size = tuple(map(int, geometry.split('x')))
-        
-        # Create window 
+
+        # Create window
         self.app = wx.App(False)
         self.window = wx.Frame(None, wx.ID_ANY, title=title, size=size)
         # Create panel
         self.panel = wx.Panel(self.window)
-        
+
         # Add main messagebox
         self.messageLabel = wx.TextCtrl(self.panel, size=(300, 600), style=wx.TE_MULTILINE| wx.TE_READONLY, name="Message Box")
-        
+
         # Add raw messagebox
         self.messageRaw = wx.TextCtrl(self.panel, size=(1440, 200), style=wx.TE_MULTILINE | wx.TE_READONLY)
-        
+
         # Create tree list
         self.packetList = listBox(("Source", "Destination", "PAN"), self.panel, self.displayRawMessage)
 
@@ -38,15 +38,15 @@ class Window:
         horzSizer = wx.BoxSizer(wx.HORIZONTAL)
         horzSizer.Add(self.packetList.getWidget(), 0, wx.EXPAND)
         horzSizer.Add(self.messageRaw, 0, wx.EXPAND)
-        
+
         # Vertical sizer for widgets
         sizer = wx.BoxSizer(wx.HORIZONTAL)
         sizer.Add(self.messageLabel, 0, wx.ALIGN_BOTTOM)
-        sizer.Add(horzSizer, 0, wx.ALIGN_BOTTOM)        
- 
+        sizer.Add(horzSizer, 0, wx.ALIGN_BOTTOM)
+
         self.panel.SetSizer(sizer)
         self.panel.Layout()
-        
+
         # Create list of labels for network and nodes
         self.labels = []
         # Create network
@@ -66,14 +66,12 @@ class Window:
         # Create edit menu
         self.editMenu = wx.Menu()
         menuPreferences = self.editMenu.Append(wx.ID_PREFERENCES, "&Preferences", "Edit preferences")
-        
-        #self.menubar.add_cascade(label="Edit", menu=self.editMenu)
+
         # Create view menu
         #self.viewMenu = Menu(self.menubar, tearoff=False)
         # Create scan menu
-        #self.scanMenu = Menu(self.menubar, tearoff=False)
-        #self.scanMenu.add_command(label='Scan Network')
-        #self.menubar.add_cascade(label="Scan", menu=self.scanMenu)
+        self.scanMenu = wx.Menu()
+        menuScanChannels = self.scanMenu.Append(wx.ID_ANY, "&Scan Channels", "Scan for channels")
         # Create menubar
         self.menubar = wx.MenuBar()
         self.menubar.Append(self.fileMenu, "&File")
@@ -83,38 +81,39 @@ class Window:
         self.clickMenu = wx.Menu()
         sendMenu = self.clickMenu.Append(-1, "Send")
         renameMenu = self.clickMenu.Append(-1, "Rename")
-        
+
         # Bindings for window
         self.window.Bind(wx.EVT_MENU, self.newNetwork, menuNewNetwork)
         self.window.Bind(wx.EVT_MENU, self.onExit, menuExit)
+        self.window.Bind(wx.EVT_MENU, self.scanChannels, menuScanChannels)
         # Bindings for panel
-        self.panel.Bind(wx.EVT_MOTION, self.onMove) 
+        self.panel.Bind(wx.EVT_MOTION, self.onMove)
         # Bindings for popup menu
         self.clickMenu.Bind(wx.EVT_MENU, self.onSend, sendMenu)
         self.clickMenu.Bind(wx.EVT_MENU, self.onRename, renameMenu)
 
         self.window.Show(True)
-    
+
     # Function to display message in message box
     def displayMessage(self, message):
         # Use threadsafe wx.CallAfter() to append text to message label
         wx.CallAfter(self.messageLabel.AppendText, message)
-    
+
     # Threadsafe function for displaying packet
     def displayPacket(self, packet):
         wx.CallAfter(self.packetList._buildTree, packet)
-    
+
     # Threadsafe function for displaying the raw packet data
     def displayRawMessage(self, message):
         wx.CallAfter(self.messageRaw.SetValue, message)
-    
+
     # Threadsafe function for adding a node
     def addNode(self, node):
         wx.CallAfter(self.drawNode, node)
-        
+
     # Function to draw network on panel
     def drawNode(self, source):
-        if self.network.searchNode(source) == False: 
+        if self.network.searchNode(source) == False:
             node = objects.Node(source, 700, 150)
             # Add node to network
             self.network.addNode(node)
@@ -133,7 +132,7 @@ class Window:
             label.Bind(wx.EVT_RIGHT_DOWN, self.popMenu)
             # Add to label list
             self.labels.append(label)
-    
+
     # Function for starting gui and mainloop function on separate threads
     def start(self, function):
         # Track if application is still supposed to be running
@@ -145,14 +144,18 @@ class Window:
         # Run main function
         while(self.running.is_set()):
             function()
-    
+
     # Function called when exit is clicked
     def onExit(self, event):
         # Set running as false
         self.running.clear()
         # Close window
         self.window.Close(True)
-    
+
+    # Function called when scan channels is clicked
+    def scanChannels(self, event):
+        pass
+
     # Function called when mouse is moved
     def onMove(self, event):
         x = event.GetX()
@@ -161,18 +164,18 @@ class Window:
             self.dragged.SetPosition(wx.Point(x,y))
         else:
             self.dragged = None
-            
+
     # Function to initiate dragging of object
     def onClick(self, event):
         self.dragged = event.GetEventObject()
-        
+
     # Function to create pop up menu on right click
     def popMenu(self, event):
         self.selectedLabel = event.GetEventObject()
         x = event.GetX()
         y = event.GetY()
         event.GetEventObject().PopupMenu(self.clickMenu, wx.Point(x,y))
-        
+
     # Function to create new network
     def newNetwork(self, event):
         # Reset network list
@@ -181,15 +184,15 @@ class Window:
         for label in self.labels:
             label.Destroy()
         self.labels = []
-        
+
     # Function to save network
     def saveNetwork():
         print("Not yet implemented")
-        
+
     # Function to open network
     def openNetwork():
         print("Not yet implemented")
-    
+
     # Take send message input
     # TODO refactor to transientwindow class rather than in function
     def onSend(self, event):
@@ -213,24 +216,24 @@ class Window:
         # Sizer to arrange elements
         sizer = wx.BoxSizer(wx.HORIZONTAL)
         sizer.Add(textBox, 0, wx.ALIGN_BOTTOM)
-        sizer.Add(buttonSend, 0, wx.ALIGN_BOTTOM) 
+        sizer.Add(buttonSend, 0, wx.ALIGN_BOTTOM)
         sizer.Add(buttonCancel, 0, wx.ALIGN_BOTTOM)
         popup.SetSizer(sizer)
         popup.Layout()
         # Create popup
         popup.Popup(focus=None)
         self.selectedLabel = None
-    
+
     # Add sending packet to threadsafe queue
     def send(self, event):
         self.sendingPackets.put(event.GetEventObject().text.GetValue())
         self.onCancel(event)
-    
+
     # Function When cancel button is clicked
     def onCancel(self, event):
         # Get button that called, get parent window and dismiss
         event.GetEventObject().GetParent().Dismiss()
-    
+
     # Rename node label dialogue box
     def onRename(self, event):
         # Get position and width,height
@@ -253,14 +256,14 @@ class Window:
         # Sizer to arrange elements
         sizer = wx.BoxSizer(wx.HORIZONTAL)
         sizer.Add(textBox, 0, wx.ALIGN_BOTTOM)
-        sizer.Add(buttonRename, 0, wx.ALIGN_BOTTOM) 
+        sizer.Add(buttonRename, 0, wx.ALIGN_BOTTOM)
         sizer.Add(buttonCancel, 0, wx.ALIGN_BOTTOM)
         popup.SetSizer(sizer)
         popup.Layout()
         # Create popup
         popup.Popup(focus=None)
         self.selectedLabel = None
-    
+
     # Rename label
     def rename(self, event):
         event.GetEventObject().label.SetLabel(event.GetEventObject().text.GetValue())
@@ -292,7 +295,7 @@ class listBox:
         # Bind click function
         #self.tree.bind("<<TreeviewSelect>>", self.getPacket)
         self._buildTree(packet)
-    
+
     # Build the columns for the list
     def _buildTree(self, packet):
         if packet != None:
@@ -301,7 +304,7 @@ class listBox:
             self.tree.SetItem(ID, 1, "0x" + str(item['dest']))
             self.tree.SetItem(ID, 2, "0x" + str(item['pan']))
             self.packets.insert(0, packet)
-    
+
     # Function to get the packet that has been clicked on
     def getPacket(self):
         item = self.tree.GetFocusedItem()
@@ -316,14 +319,12 @@ class listBox:
             return self.messageRaw
         else:
             return ''
-    
+
     # Function to get the widget
     def getWidget(self):
         return self.tree
-    
+
     # Function to call when user clicks on packet entry
     def onClick(self, event):
         self.getPacket()
         self.displayFunction(self.messageRaw)
-        
-
