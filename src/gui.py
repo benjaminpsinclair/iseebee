@@ -31,6 +31,10 @@ class Window:
         # Add raw messagebox
         self.messageRaw = wx.TextCtrl(self.panel, size=(1440, 200), style=wx.TE_MULTILINE | wx.TE_READONLY)
 
+        # Add label for channel and packetBytes
+        self.channelKeyLabel = wx.StaticText(self.panel, size=(100, 100), label="Channel: Key: ", pos=(0, 0))
+        self.channelKeyLabel.SetForegroundColour((255,0,0))
+
         # Create tree list
         self.packetList = listBox(("Source", "Destination", "PAN"), self.panel, self.displayRawMessage)
 
@@ -40,9 +44,15 @@ class Window:
         horzSizer.Add(self.messageRaw, 0, wx.EXPAND)
 
         # Vertical sizer for widgets
+        vertSizer = wx.BoxSizer(wx.VERTICAL)
+        vertSizer.Add(self.channelKeyLabel, 0, wx.EXPAND)
+        vertSizer.Add(horzSizer, 0, wx.ALIGN_BOTTOM)
+
+
+        # Horizontal sizer for widgets
         sizer = wx.BoxSizer(wx.HORIZONTAL)
         sizer.Add(self.messageLabel, 0, wx.ALIGN_BOTTOM)
-        sizer.Add(horzSizer, 0, wx.ALIGN_BOTTOM)
+        sizer.Add(vertSizer, 0, wx.ALIGN_BOTTOM)
 
         self.panel.SetSizer(sizer)
         self.panel.Layout()
@@ -57,6 +67,12 @@ class Window:
         self.selectedLabel = None
         # Queue for packets to be sent
         self.sendingPackets = queue.Queue()
+        # Queue for Key
+        self.key = queue.Queue()
+        # Queue for channels
+        self.channel = queue.Queue()
+        # Queue for events
+        self.events = queue.Queue()
 
         # Create file menu
         self.fileMenu = wx.Menu()
@@ -65,6 +81,7 @@ class Window:
         menuExit = self.fileMenu.Append(wx.ID_EXIT, "&Exit", " Exit the application")
         # Create edit menu
         self.editMenu = wx.Menu()
+        menuKey = self.editMenu.Append(wx.ID_ANY, "&Key", "Edit key")
         menuPreferences = self.editMenu.Append(wx.ID_PREFERENCES, "&Preferences", "Edit preferences")
 
         # Create view menu
@@ -76,6 +93,7 @@ class Window:
         self.menubar = wx.MenuBar()
         self.menubar.Append(self.fileMenu, "&File")
         self.menubar.Append(self.editMenu, "&Edit")
+        self.menubar.Append(self.scanMenu, "&Scan")
         self.window.SetMenuBar(self.menubar)
         # Create right click menu
         self.clickMenu = wx.Menu()
@@ -86,6 +104,8 @@ class Window:
         self.window.Bind(wx.EVT_MENU, self.newNetwork, menuNewNetwork)
         self.window.Bind(wx.EVT_MENU, self.onExit, menuExit)
         self.window.Bind(wx.EVT_MENU, self.scanChannels, menuScanChannels)
+        self.window.Bind(wx.EVT_MENU, self.editKey, menuKey)
+
         # Bindings for panel
         self.panel.Bind(wx.EVT_MOTION, self.onMove)
         # Bindings for popup menu
@@ -110,6 +130,10 @@ class Window:
     # Threadsafe function for adding a node
     def addNode(self, node):
         wx.CallAfter(self.drawNode, node)
+
+    # Threadsafe function for displaying channel and Key
+    def updateChannelKey(self, channel, key):
+        wx.CallAfter(self.channelKeyLabel.SetLabel,"Channel: " + str(channel) + "\nKey: " + key)
 
     # Function to draw network on panel
     def drawNode(self, source):
@@ -154,7 +178,38 @@ class Window:
 
     # Function called when scan channels is clicked
     def scanChannels(self, event):
-        pass
+        event.name = "scanning"
+        self.events.put(event)
+
+    # Function to edit Key
+    def editKey(self, event):
+        w,h = self.window.GetSize()
+        # Create sending dialog box
+        popup = wx.PopupTransientWindow(self.panel, flags=wx.BORDER_DOUBLE)
+        popup.Position((100,100), (0,0))
+        popup.SetSize((450,150))
+        # Create textbox
+        textBox = wx.TextCtrl(popup, size=(250, 100), style=wx.TE_MULTILINE)
+        # Create OK button
+        buttonOK = wx.Button(popup, size=(100,100), label = "OK")
+        buttonOK.text = textBox
+        buttonOK.Bind(wx.EVT_BUTTON, self.changeKey)
+        # Create cancel button
+        buttonCancel = wx.Button(popup, size=(100,100), label = "Cancel")
+        buttonCancel.Bind(wx.EVT_BUTTON, self.onCancel)
+        # Sizer to arrange elements
+        sizer = wx.BoxSizer(wx.HORIZONTAL)
+        sizer.Add(textBox, 0, wx.ALIGN_BOTTOM)
+        sizer.Add(buttonOK, 0, wx.ALIGN_BOTTOM)
+        sizer.Add(buttonCancel, 0, wx.ALIGN_BOTTOM)
+        popup.SetSizer(sizer)
+        popup.Layout()
+        # Create popup
+        popup.Popup(focus=None)
+
+    def changeKey(self, event):
+        self.key.put(event.GetEventObject().text.GetValue())
+        self.onCancel(event)
 
     # Function called when mouse is moved
     def onMove(self, event):

@@ -11,12 +11,13 @@
 from killerbee import *
 import os
 from zigbee_crypt import *
+import hue
 
 # Sniffer class wrapper around killerbee functions
 class Sniffer:
-    def __init__(self):
+    def __init__(self, channel):
         # Set default channel to 11
-        self.channel = 11
+        self.channel = channel
         self.reset()
         #self.channelScan()
 
@@ -71,13 +72,15 @@ class Sniffer:
                     print("Channel found: ", c)
                     break
 
+    def setChannel(self, channel):
+        self.channel = channel
+        self.reset()
 
     def reset(self):
         # Store latest message to pass on
         self.message = ""
         with KillerBee() as self.kb:
             try:
-
                 self.kb.set_channel(self.channel,)
             except:
                 print("Error setting channel")
@@ -85,12 +88,12 @@ class Sniffer:
         self.kb.sniffer_on()
 
 class Packet:
-    def __init__(self, data):
+    def __init__(self, data, key):
         self.data = data
         self.rawBytes = data['bytes']
         self.hex = self.rawBytes.hex()
-        self.key = bytes.fromhex("ab99c8ef8cfcd001eb7ab4abfdca014e")
-        self.decoded = self.decode()
+        self.key = bytes.fromhex(key)
+        self.decode()
 
     # Check if packet is valid
     def checkValid(self):
@@ -111,30 +114,31 @@ class Packet:
         self.dest = dest.hex()
         self.pan = pan.hex()
         self.payload = payload.hex()
-
         # Use supplied key
 
         # Test frame 1
-        #
+        # Payload should be 0120e67b040082fed90201881700
         #key = bytes.fromhex("ab99c8ef8cfcd001eb7ab4abfdca014e")
-        #rawData = bytes.fromhex("4188d4b478ffff7a970912fcff7a971eb6b608d1010188170028ef2b2c00b608d101018817000051c28d032b1816c7a997a3df77907bb84e0a8131")
+        #rawData = bytes.fromhex("41882cb478ffff7a970912fcff7a971edcb608d1010188170028c1572f00b608d1010188170000c83a423e47ec186b849f3c28c90551cdb494fca9")
+
         rawData = self.rawBytes
-        print("Bytes " + rawData.hex())
+        #print("Bytes " + rawData.hex())
         nwkHeader = rawData[9:17]
-        print("Network Header " + nwkHeader.hex())
+        #print("Network Header " + nwkHeader.hex())
         auxHeader = bytes.fromhex("2d") + rawData[26:39]
-        print("Aux Header " + auxHeader.hex())
+        #print("Aux Header " + auxHeader.hex())
         a = nwkHeader + auxHeader
-        m = rawData[39:53]
-        mic = rawData[53:57]
-        print("a " + a.hex())
-        print("m " + m.hex())
-        print("mic " + mic.hex())
+        # The data payload bytes
+        m = rawData[39:-6]
+        mic = rawData[-4:]
+        #print("a " + a.hex())
+        #print("m " + m.hex())
+        #print("mic " + mic.hex())
         # Nonce made of source address fields of aux header, security control and frame counter
         sourceAdd = rawData[30:38]
         frameCount = rawData[26:30]
         nonce = sourceAdd + frameCount + bytes.fromhex("2d")
-        print(nonce.hex())
+        #print(nonce.hex())
         #
         # Test frame 2
         #
@@ -146,8 +150,14 @@ class Packet:
         #m = bytes.fromhex("ea59de1f960eea8aee185a1189309641")
         #mic = bytes.fromhex("ac4c76af")
         decrypted, success = decrypt_ccm(self.key, nonce, mic, m, a)
-        print(decrypted.hex())
-        
+        #print(decrypted.hex())
+        # Currently function is returning unsuccessful when the packet is decrypted so skip this check
+        #if success:
+        self.decrypted = decrypted.hex() + hue.getCommand(decrypted)
+        #else:
+        #    self.decrypted = "No Decrypted Data Payload = " + m.hex()
+
+
     # Return packet information
     def getInfo(self):
         info = {}
@@ -158,4 +168,4 @@ class Packet:
 
     def getRaw(self):
         # Return raw packet in hex
-        return "0x" + self.hex
+        return "0x" + self.hex + "\n Decrypted Payload: 0x" + self.decrypted
