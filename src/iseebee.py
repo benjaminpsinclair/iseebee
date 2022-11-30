@@ -59,31 +59,45 @@ def mainLoop():
         # Add node for non empty sources
         if info['source'] != "":
             window.addNode(info['source'])
+            # Draw a line between nodes
+            #window.connection(info['source'], info['dest'])
         # Add message from the sniffer to the window
         window.displayMessage(sniff.getMessage())
         if packet.checkValid():
             window.displayMessage("Packet is valid\n")
         else:
             windows.displayMessage("Packet invalid\n")
+        window.displayMessage(packet.getMessage())
     # Check for messages to send
     while window.sendingPackets.empty() != True:
         #Convert hex string to bytes
         try:
-            packetBytes = bytes.fromhex(window.sendingPackets.get())
+            packet = window.sendingPackets.get()
+            packetBytes = bytes.fromhex(packet.text.GetValue())
             window.displayMessage("Sending message: " + str(packetBytes.hex()) + '\n')
-            sniff.sendPacket(packetBytes)
-
+            if packet.encrypt:
+                sniff.sendPacketEnc(packetBytes, key)
+            else:
+                sniff.sendPacket(packetBytes)
         except Exception as e:
             window.displayMessage("Error: " + str(e) + '\n')
+        window.displayMessage(sniff.getMessage())
+    # Check if the key has changed
     while window.key.empty() != True:
         key = window.key.get()
         window.updateChannelKey(channel,key)
+    # Check if channel has changed
     while window.channel.empty() != True:
         channel = window.channel.get()
-        window.updateChannelKey(channel, key)
+        print(channel)
+        sniff.setChannel(channel)
+        window.updateChannelKey(channel,key)
+    # Check if event has been passed
     while window.events.empty() != True:
         event = window.events.get()
         if event.name == "scanning":
+            window.displayMessage("Scanning Channels...\n")
             sniff.channelScan()
+            window.displayMessage(sniff.getMessage())
 if __name__ == '__main__':
     main()

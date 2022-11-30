@@ -58,7 +58,7 @@ class Window:
         self.panel.Layout()
 
         # Create list of labels for network and nodes
-        self.labels = []
+        self.labels = {}
         # Create network
         self.network = objects.Network("1")
         # Set variable for object being dragged currently
@@ -82,6 +82,7 @@ class Window:
         # Create edit menu
         self.editMenu = wx.Menu()
         menuKey = self.editMenu.Append(wx.ID_ANY, "&Key", "Edit key")
+        menuChannel = self.editMenu.Append(wx.ID_ANY, "&Channel", "Set Channel")
         menuPreferences = self.editMenu.Append(wx.ID_PREFERENCES, "&Preferences", "Edit preferences")
 
         # Create view menu
@@ -97,7 +98,8 @@ class Window:
         self.window.SetMenuBar(self.menubar)
         # Create right click menu
         self.clickMenu = wx.Menu()
-        sendMenu = self.clickMenu.Append(-1, "Send")
+        sendMenu = self.clickMenu.Append(-1, "Send Raw Data")
+        sendEncMenu = self.clickMenu.Append(-1, "Send Encrypted Packet")
         renameMenu = self.clickMenu.Append(-1, "Rename")
 
         # Bindings for window
@@ -105,11 +107,13 @@ class Window:
         self.window.Bind(wx.EVT_MENU, self.onExit, menuExit)
         self.window.Bind(wx.EVT_MENU, self.scanChannels, menuScanChannels)
         self.window.Bind(wx.EVT_MENU, self.editKey, menuKey)
+        self.window.Bind(wx.EVT_MENU, self.setChannel, menuChannel)
 
         # Bindings for panel
         self.panel.Bind(wx.EVT_MOTION, self.onMove)
         # Bindings for popup menu
         self.clickMenu.Bind(wx.EVT_MENU, self.onSend, sendMenu)
+        self.clickMenu.Bind(wx.EVT_MENU, self.onSendEnc, sendEncMenu)
         self.clickMenu.Bind(wx.EVT_MENU, self.onRename, renameMenu)
 
         self.window.Show(True)
@@ -135,6 +139,16 @@ class Window:
     def updateChannelKey(self, channel, key):
         wx.CallAfter(self.channelKeyLabel.SetLabel,"Channel: " + str(channel) + "\nKey: " + key)
 
+    # Threadsafe function for drawing line
+    def connection(self, source, dest):
+        wx.CallAfter(self.drawLine, source, dest)
+
+    def drawLine(self, source, dest):
+        # Check if nodes exist
+        if self.network.searchNode(source) == True:
+            if self.network.searchNode(dest) == True:
+                dc = wx.PaintDC(self.window)
+                dc.DrawLine(0, 0, labels[source], labels[dest])
     # Function to draw network on panel
     def drawNode(self, source):
         if self.network.searchNode(source) == False:
@@ -155,7 +169,7 @@ class Window:
             # Add right click menu
             label.Bind(wx.EVT_RIGHT_DOWN, self.popMenu)
             # Add to label list
-            self.labels.append(label)
+            self.labels[source] = label
 
     # Function for starting gui and mainloop function on separate threads
     def start(self, function):
@@ -184,7 +198,7 @@ class Window:
     # Function to edit Key
     def editKey(self, event):
         w,h = self.window.GetSize()
-        # Create sending dialog box
+        # Create dialog box
         popup = wx.PopupTransientWindow(self.panel, flags=wx.BORDER_DOUBLE)
         popup.Position((100,100), (0,0))
         popup.SetSize((450,150))
@@ -207,8 +221,41 @@ class Window:
         # Create popup
         popup.Popup(focus=None)
 
+    # Function to set channel
+    def setChannel(self, event):
+        # Channel list
+        channels = [str(x) for x in range(11,26)]
+        # Create dialog box
+        popup = wx.PopupTransientWindow(self.panel, flags=wx.BORDER_DOUBLE)
+        popup.Position((100,100), (0,0))
+        popup.SetSize((450,40))
+        # Create textbox
+        comboBox = wx.ComboBox(popup, size=(250, 100), choices = channels, value = "11", style=wx.CB_READONLY)
+        # Create OK button
+        buttonOK = wx.Button(popup, size=(100,100), label = "OK")
+        buttonOK.text = comboBox
+        print(buttonOK.text)
+        buttonOK.Bind(wx.EVT_BUTTON, self.changeChannel)
+        # Create cancel button
+        buttonCancel = wx.Button(popup, size=(100,100), label = "Cancel")
+        buttonCancel.Bind(wx.EVT_BUTTON, self.onCancel)
+        # Sizer to arrange elements
+        sizer = wx.BoxSizer(wx.HORIZONTAL)
+        sizer.Add(comboBox, 0, wx.ALIGN_BOTTOM)
+        sizer.Add(buttonOK, 0, wx.ALIGN_BOTTOM)
+        sizer.Add(buttonCancel, 0, wx.ALIGN_BOTTOM)
+        popup.SetSizer(sizer)
+        popup.Layout()
+        # Create popup
+        popup.Popup(focus=None)
+
     def changeKey(self, event):
         self.key.put(event.GetEventObject().text.GetValue())
+        self.onCancel(event)
+
+    def changeChannel(self, event):
+        self.newNetwork(event)
+        self.channel.put(int(event.GetEventObject().text.GetValue()))
         self.onCancel(event)
 
     # Function called when mouse is moved
@@ -236,9 +283,9 @@ class Window:
         # Reset network list
         self.network = objects.Network("1")
         # Destroy labels
-        for label in self.labels:
+        for label in self.labels.values():
             label.Destroy()
-        self.labels = []
+        self.labels = {}
 
     # Function to save network
     def saveNetwork():
@@ -263,6 +310,7 @@ class Window:
         # Create send button
         buttonSend = wx.Button(popup, size=(100,100), label = "Send")
         buttonSend.text = textBox
+        buttonSend.encrypt = False
         buttonSend.label = self.selectedLabel
         buttonSend.Bind(wx.EVT_BUTTON, self.send)
         # Create cancel button
@@ -282,6 +330,41 @@ class Window:
     # Add sending packet to threadsafe queue
     def send(self, event):
         self.sendingPackets.put(event.GetEventObject().text.GetValue())
+        self.onCancel(event)
+
+    def onSendEnc(self, event):
+        # Get position and width,height
+        x,y = self.selectedLabel.Position
+        w,h = self.selectedLabel.GetSize()
+        # Create sending dialog box
+        popup = wx.PopupTransientWindow(self.panel, flags=wx.BORDER_DOUBLE)
+        popup.Position((x,y), (w,h))
+        popup.SetSize((450,150))
+        # Create textbox
+        textBox = wx.TextCtrl(popup, size=(250, 100), style=wx.TE_MULTILINE)
+        # Create send button
+        buttonSend = wx.Button(popup, size=(100,100), label = "Send")
+        buttonSend.text = textBox
+        buttonSend.encrypt = True
+        buttonSend.label = self.selectedLabel
+        buttonSend.Bind(wx.EVT_BUTTON, self.send)
+        # Create cancel button
+        buttonCancel = wx.Button(popup, size=(100,100), label = "Cancel")
+        buttonCancel.Bind(wx.EVT_BUTTON, self.onCancel)
+        # Sizer to arrange elements
+        sizer = wx.BoxSizer(wx.HORIZONTAL)
+        sizer.Add(textBox, 0, wx.ALIGN_BOTTOM)
+        sizer.Add(buttonSend, 0, wx.ALIGN_BOTTOM)
+        sizer.Add(buttonCancel, 0, wx.ALIGN_BOTTOM)
+        popup.SetSizer(sizer)
+        popup.Layout()
+        # Create popup
+        popup.Popup(focus=None)
+        self.selectedLabel = None
+
+    # Add sending packet to threadsafe queue
+    def send(self, event):
+        self.sendingPackets.put(event.GetEventObject())
         self.onCancel(event)
 
     # Function When cancel button is clicked

@@ -10,6 +10,7 @@
 
 from killerbee import *
 import os
+import time
 from zigbee_crypt import *
 import hue
 
@@ -37,6 +38,35 @@ class Sniffer:
     def sendPacket(self, packet):
         return self.kb.inject(packet)
 
+    # Function for sending encrypted packets
+    # TODO add extra PARAMETERS
+    #def sendPacketEnc(self, payload, source, dest, pan, seq, key):
+    def sendPacketEnc(self, payload, key):
+        #seqNum = 0
+        rawData = payload
+        #nwkHeader = bytes.fromhex("4188") + bytes.fromhex(seq) + bytes.fromhex(pan) + bytes.fromhex(dest) + bytes.fromhex(source)
+        nwkHeader = rawData[9:17]
+        print("Network Header " + nwkHeader.hex())
+        auxHeader = bytes.fromhex("2d") + rawData[26:39]
+        print("Aux Header " + auxHeader.hex())
+        a = nwkHeader + auxHeader
+        # The data payload bytes
+        m = rawData[39:-6]
+        mic = rawData[-4:]
+        print("a " + a.hex())
+        print("m " + m.hex())
+        # Nonce made of source address fields of aux header, security control and frame counter
+        sourceAdd = rawData[30:38]
+        frameCount = rawData[26:30]
+        nonce = sourceAdd + frameCount + bytes.fromhex("2d")
+        print(nonce.hex())
+        try:
+            encrypted, success = encrypt_ccm(bytes.fromhex(key), nonce, mic, m, a)
+            self.encrypted = encrypted.hex()
+        except Exception as e:
+            self.message = "Error: " + str(e) + '\n'
+            self.encrypted = ""
+
     # Scan for channels broadcasting
     def channelScan(self):
         # Beacon frame
@@ -50,7 +80,7 @@ class Sniffer:
         for c in range(11,26):
             # Iterations per channel
             for i in range(0,50):
-                # Loop sequence number around if too height
+                # Loop sequence number around
                 if seqNum > 255:
                     seqNum = 0
                 # Try setting the channel
@@ -67,14 +97,21 @@ class Sniffer:
                 self.sendPacket(beacon)
 
                 # Receive packet
-                if self.kb.pnext(2) != None:
-                    channel = c
-                    print("Channel found: ", c)
+                if self.kb.pnext() != None:
+                    self.message = self.message + "Channel found: " + str(c) + "\n"
                     break
+        self.setChannel(self.channel)
 
     def setChannel(self, channel):
         self.channel = channel
-        self.reset()
+        self.kb.sniffer_off()
+        try:
+            self.kb.set_channel(self.channel,)
+        except:
+            self.message = "Error setting channel"
+        time.sleep(1)
+        self.kb.sniffer_on()
+
 
     def reset(self):
         # Store latest message to pass on
@@ -89,6 +126,7 @@ class Sniffer:
 
 class Packet:
     def __init__(self, data, key):
+        self.message = ''
         self.data = data
         self.rawBytes = data['bytes']
         self.hex = self.rawBytes.hex()
@@ -104,6 +142,14 @@ class Packet:
         d154 = Dot154PacketParser()
         # Chop the packet up
         pktdecode = d154.pktchop(self.data[0])
+        # Check for ack packets
+        if pktdecode[0][0] == 2:
+            self.source = ''
+            self.dest = ''
+            self.pan = ''
+            self.payload = ''
+            self.decrypted = ''
+            return
         # Reverse byte order
         source = pktdecode[5][::-1]
         dest = pktdecode[3][::-1]
@@ -149,14 +195,17 @@ class Packet:
         #a = NwkHeader + AuxiliaryHeader
         #m = bytes.fromhex("ea59de1f960eea8aee185a1189309641")
         #mic = bytes.fromhex("ac4c76af")
-        decrypted, success = decrypt_ccm(self.key, nonce, mic, m, a)
+        try:
+            decrypted, success = decrypt_ccm(self.key, nonce, mic, m, a)
+            # Currently function is returning unsuccessful when the packet is decrypted so skip this check
+            #if success:
+            self.decrypted = decrypted.hex() + "\n" + hue.getCommand(decrypted)
+            #else:
+            #    self.decrypted = "No Decrypted Data Payload = " + m.hex()
+        except Exception as e:
+            self.message = "Error: " + str(e) + '\n'
+            self.decrypted = ""
         #print(decrypted.hex())
-        # Currently function is returning unsuccessful when the packet is decrypted so skip this check
-        #if success:
-        self.decrypted = decrypted.hex() + hue.getCommand(decrypted)
-        #else:
-        #    self.decrypted = "No Decrypted Data Payload = " + m.hex()
-
 
     # Return packet information
     def getInfo(self):
@@ -165,6 +214,11 @@ class Packet:
         info['dest'] = self.dest
         info['pan'] = self.pan
         return info
+
+    def getMessage(self):
+        message = self.message
+        self.message = ''
+        return message
 
     def getRaw(self):
         # Return raw packet in hex
